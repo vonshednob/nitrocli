@@ -12,31 +12,84 @@ def as_str(ffistr):
     return str(ffi.string(ffistr), 'utf-8')
 
 
+class NitroKeyError(Exception):
+    pass
+
+
+class WrongModelError(NitroKeyError):
+    pass
+
+
+class NotConnectedError(NitroKeyError):
+    pass
+
+
+def require_connected(fn):
+    def wrapper(self, *args, **kwargs):
+        if not self.connected:
+            raise NotConnectedError()
+        return fn(self, *args, **kwargs)
+    return wrapper
+
+
 class NitroKey:
     MODEL_STORAGE = 'S'
     MODEL_PRO = 'P'
 
-    def __init__(self):
+    def __init__(self, model=None):
+        self.model = model
+        self._connected = False
+        self._encrypted_volume_mounted = False
         self._lib = get_library()
         self._lib.NK_set_debug(False)
+
+    @property
+    def connected(self):
+        return self._connected
 
     def login(self, model):
         return 1 == self._lib.NK_login(model)
 
-    def status(self):
-        return as_str(self._lib.NK_status())
-
     def serial_number(self):
         return as_str(self._lib.NK_device_serial_number())
 
+    @require_connected
     def lock(self):
         self._lib.NK_lock_device()
 
+    @require_connected
     def logout(self):
+        self._connected = False
         self._lib.NK_logout()
 
     def login_auto(self):
-        self._lib.NK_login_auto()
+        return 1 == self._lib.NK_login_auto()
+
+    def do_connect(self):
+        if self.model is None:
+            self._connected = self.login_auto()
+            if self._connected:
+                self.model = self._lib.NK_get_device_model()
+        else:
+            self._connected = self.login(self.model)
+
+    def __enter__(self):
+        self.do_connect()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.lock()
+        self.logout()
+
+    @require_connected
+    def unlock_encrypted_volume(self, password):
+        if self.model != NitroKey.MODEL_STORAGE:
+            raise WrongModelError()
+        return self._lib.NK_unlock_encrypted_volume(password)
+
+    @require_connected
+    def lock_encrypted_volume(self):
+        return self._lib.NK_lock_encrypted_volume()
 
 
 def get_library(paths=None, libpaths=None):
