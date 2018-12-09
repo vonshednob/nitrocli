@@ -1,6 +1,6 @@
 import logging
 import os
-import sys
+import warnings
 
 import cffi
 
@@ -69,7 +69,7 @@ class NitroKey:
         if self.model is None:
             self._connected = self.login_auto()
             if self._connected:
-                self.model = self._lib.NK_get_device_model()
+                self.model = self.get_model()
         else:
             self._connected = self.login(self.model)
 
@@ -78,14 +78,32 @@ class NitroKey:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.lock()
         self.logout()
+
+    @require_connected
+    def get_model(self):
+        warnings.simplefilter('ignore', UserWarning)
+        model = self._lib.NK_get_device_model()
+        warnings.simplefilter('default', UserWarning)
+        if model == 1:
+            model = NitroKey.MODEL_PRO
+        elif model == 2:
+            model = NitroKey.MODEL_STORAGE
+        return model
+
+    @require_connected
+    def get_status(self):
+        status = ffi.new('struct NK_storage_status*')
+        if self._lib.NK_get_status_storage(status) == 0:
+            return status
+        return None
 
     @require_connected
     def unlock_encrypted_volume(self, password):
         if self.model != NitroKey.MODEL_STORAGE:
             raise WrongModelError()
-        return self._lib.NK_unlock_encrypted_volume(password)
+        pwdkeeper = ffi.new('char[]', bytes(password, 'utf-8'))
+        return self._lib.NK_unlock_encrypted_volume(pwdkeeper)
 
     @require_connected
     def lock_encrypted_volume(self):
@@ -133,5 +151,39 @@ def get_library(paths=None, libpaths=None):
     if libpath is None:
         logging.debug('No library found')
         return None
+
+    ffi.cdef('''struct NK_storage_ProductionTest{
+    uint8_t FirmwareVersion_au8[2];
+    uint8_t FirmwareVersionInternal_u8;
+    uint8_t SD_Card_Size_u8;
+    uint32_t CPU_CardID_u32;
+    uint32_t SmartCardID_u32;
+    uint32_t SD_CardID_u32;
+    uint8_t SC_UserPwRetryCount;
+    uint8_t SC_AdminPwRetryCount;
+    uint8_t SD_Card_ManufacturingYear_u8;
+    uint8_t SD_Card_ManufacturingMonth_u8;
+    uint16_t SD_Card_OEM_u16;
+    uint16_t SD_WriteSpeed_u16;
+    uint8_t SD_Card_Manufacturer_u8;
+  };
+  struct NK_storage_status {
+    bool unencrypted_volume_read_only;
+    bool unencrypted_volume_active;
+    bool encrypted_volume_read_only;
+    bool encrypted_volume_active;
+    bool hidden_volume_read_only;
+    bool hidden_volume_active;
+    uint8_t firmware_version_major;
+    uint8_t firmware_version_minor;
+    bool firmware_locked;
+    uint32_t serial_number_sd_card;
+    uint32_t serial_number_smart_card;
+    uint8_t user_retry_count;
+    uint8_t admin_retry_count;
+    bool new_sd_card_found;
+    bool filled_with_random;
+    bool stick_initialized;
+  };''')
 
     return ffi.dlopen(libpath)
