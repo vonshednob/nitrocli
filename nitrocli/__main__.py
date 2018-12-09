@@ -3,17 +3,6 @@ import sys
 import subprocess
 
 from nitrocli.lib import NitroKey
-from nitrocli.menu import Menu
-
-
-def init(menu):
-    menu.nk = NitroKey()
-    menu.nk.do_connect()
-
-
-def cleanup(menu):
-    menu.nk.lock()
-    menu.nk.logout()
 
 
 def get_password(admin=False):
@@ -35,21 +24,11 @@ def get_password(admin=False):
     return getpass.getpass(f'Enter {hint} pin: ')
 
 
-options = []
-commands = {'quit': Menu.quit}
-
-
 command = 'help'
 if len(sys.argv) > 1:
     command = sys.argv[1]
 
-if command == 'menu':
-    Menu(options,
-         data={'nk': None},
-         init=init,
-         cleanup=cleanup,
-         commands=commands).run()
-elif command == 'help':
+if command == 'help':
     print('''These commands are available:
 
 status    Show the status
@@ -57,8 +36,6 @@ status    Show the status
 unlock    Unlock the encrypted storage
 
 lock      Lock the NitroKey
-
-menu      Start an interactive menu (in development, don't use it)
 ''')
 else:
     with NitroKey() as nk:
