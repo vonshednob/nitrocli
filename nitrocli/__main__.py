@@ -58,7 +58,7 @@ unlock    Unlock the encrypted storage
 
 lock      Lock the NitroKey
 
-menu      Start an interactive menu
+menu      Start an interactive menu (in development, don't use it)
 ''')
 else:
     with NitroKey() as nk:

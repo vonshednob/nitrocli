@@ -135,11 +135,9 @@ def get_library(paths=None, libpaths=None):
             while ';' not in declaration:
                 declaration += (next(a)).strip()
             ffi.cdef(declaration, override=True)
-            cnt +=1
+            cnt += 1
     logging.debug(f'Imported {cnt} declarations')
 
-
-    C = None
     libpath = None
     libnames = ["libnitrokey.so", "libnitrokey.dylib",
                 "libnitrokey.dll", "nitrokey.dll"]
