@@ -8,7 +8,7 @@ setup(name='nitrocli',
       description="Command line interface to libnitrokey",
       url="https://github.com/vonshednob/nitrocli",
       author="R",
-      entry_points={'console_scripts': ['nitrocli=nitrocli.__main__']},
+      entry_points={'console_scripts': ['nitrocli=nitrocli.main:run']},
       packages=['nitrocli'],
       requires=['cffi'],
       python_requires='>=3.7')
